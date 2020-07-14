@@ -102,14 +102,11 @@ class NewCommand extends Command
         $this->output->writeln('<info>Creating your own CodeIgniter4 application...</info>');
         $zipFile = $this->getFilename();
 
-        $this
+        return $this
             ->download($zipFile, $this->getVersion())
             ->extract($zipFile, $directory)
             ->prepareWritableDirectory($directory)
             ->cleanUp($zipFile)
-        ;
-
-        return $this
             ->prepareComposerJson($directory)
             ->initializeGit($directory)
             ->initializeGitFlow($directory)
