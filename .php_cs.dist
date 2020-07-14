@@ -1,7 +1,7 @@
 <?php
 
 /**
- * This file is part of Liaison Installers.
+ * This file is part of Liaison Installer for CodeIgniter4.
  *
  * (c) John Paul E. Balandan, CPA <paulbalandan@gmail.com>
  *

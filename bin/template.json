@@ -26,7 +26,7 @@
     "scripts": {
         "post-update-cmd": [
             "@php -r \"file_exists('.env') || copy('env', '.env');\"",
-            "@php -r \"file_exists('phpunit.xml') || copy('phpunit.dist.xml', 'phpunit.xml');\""
+            "@php -r \"file_exists('phpunit.xml') || copy('phpunit.xml.dist', 'phpunit.xml');\""
         ]
     }
 }
