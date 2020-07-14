@@ -147,15 +147,15 @@ class NewCommand extends Command
             return 'develop';
         }
 
-        return 'framework';
+        return 'appstarter';
     }
 
     /**
-     * Gets the zipball URL for the latest release of framework.
+     * Gets the zipball URL for the latest release of appstarter.
      *
      * @return string
      */
-    protected function getFrameworkURL(): string
+    protected function getAppstarterURL(): string
     {
         $response = (new Client())->get('https://api.github.com/repos/codeigniter4/appstarter/releases/latest');
 
@@ -181,7 +181,7 @@ class NewCommand extends Command
             case 'develop':
                 $zip = 'https://github.com/codeigniter4/CodeIgniter4/zipball/develop';
                 break;
-            case 'framework':
+            case 'appstarter':
             default:
                 $zip = $this->getFrameworkURL();
                 break;
