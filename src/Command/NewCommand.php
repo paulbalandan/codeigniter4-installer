@@ -169,8 +169,8 @@ class NewCommand extends Command
     /**
      * Downloads the zip file.
      *
-     * @param string                                            $zipFile
-     * @param string                                            $version
+     * @param string $zipFile
+     * @param string $version
      *
      * @return $this
      */
