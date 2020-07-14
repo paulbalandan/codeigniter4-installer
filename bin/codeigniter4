@@ -16,7 +16,7 @@ if (file_exists(__DIR__ . '/../../../autoload.php')) {
     require __DIR__ . '/../vendor/autoload.php';
 }
 
-$app = new Symfony\Component\Console\Application('CodeIgniter4 Installer', '1.0.0');
+$app = new Symfony\Component\Console\Application('Liaison Installer for CodeIgniter4', '1.0.0');
 $app->add(new Liaison\Installers\CodeIgniter4\Command\NewCommand());
 
 $app->run();
