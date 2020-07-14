@@ -1,0 +1,32 @@
+{
+    "name": "",
+    "description": "My CodeIgniter 4 application starter",
+    "type": "project",
+    "license": "MIT",
+    "authors": [],
+    "require": {
+        "php": ">=7.2",
+        "ext-curl": "*",
+        "ext-intl": "*",
+        "ext-mbstring": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^8.5"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\Support\\": "tests/_support/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "scripts": {
+        "post-update-cmd": [
+            "@php -r \"file_exists('.env') || copy('env', '.env');\"",
+            "@php -r \"file_exists('phpunit.xml') || copy('phpunit.dist.xml', 'phpunit.xml');\""
+        ]
+    }
+}
