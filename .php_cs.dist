@@ -13,6 +13,7 @@ $rules = require __DIR__ . '/.rules.php';
 
 $finder = PhpCsFixer\Finder::create()
     ->exclude([
+        'output',
         'vendor',
     ])
     ->in(__DIR__)
