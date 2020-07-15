@@ -42,6 +42,13 @@ class NewCommand extends Command
     protected $gitConfig = [];
 
     /**
+     * Filesystem object
+     *
+     * @var \Symfony\Component\Filesystem\Filesystem
+     */
+    protected $fs;
+
+    /**
      * InputInterface object
      *
      * @var \Symfony\Component\Console\Input\InputInterface
@@ -66,7 +73,7 @@ class NewCommand extends Command
             ->setName('new')
             ->setDescription('Create a new CodeIgniter4 application.')
             ->addArgument('name', InputArgument::OPTIONAL, 'Name of the local directory where the application will be made.')
-            ->addOption('dev', 'd', InputOption::VALUE_NONE, 'Installs the latest CI4 developer version')
+            ->addOption('dev', null, InputOption::VALUE_NONE, 'Installs the latest CI4 developer version')
             ->addOption('with-git', null, InputOption::VALUE_NONE, 'Initializes an empty Git repository in the directory.')
             ->addOption('with-gitflow', null, InputOption::VALUE_NONE, 'Uses GitFlow to initialize the Git repository. This has "--with-git" option implicitly included.')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force install on existing directory.')
@@ -79,24 +86,26 @@ class NewCommand extends Command
      * @param \Symfony\Component\Console\Input\InputInterface   $input
      * @param \Symfony\Component\Console\Output\OutputInterface $output
      *
-     * @throws RuntimeException
      * @return int
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        if (!\extension_loaded('zip')) {
-            throw new RuntimeException('Liaison Installer for CodeIgniter4 needs the ZIP extension installed.');
-        }
-
         // save these for use by other methods later
+        $this->fs     = new Filesystem();
         $this->input  = $input;
         $this->output = $output;
+
+        if (!\extension_loaded('zip')) {
+            $this->output->writeln('<error>Liaison Installer for CodeIgniter4 needs the ZIP extension installed.</error>');
+            return 1;
+        }
 
         $name      = $this->input->getArgument('name');
         $directory = ($name && '.' !== $name) ? getcwd() . DIRECTORY_SEPARATOR . $name : getcwd();
 
         if (!$this->input->getOption('force') && $this->verifyApplicationDirectory($directory)) {
-            throw new RuntimeException('Application already exists.');
+            $this->output->writeln('<error>Application already exists!</error>');
+            return 1;
         }
 
         $this->output->writeln('<info>Creating your own CodeIgniter4 application...</info>');
@@ -105,7 +114,10 @@ class NewCommand extends Command
         return $this
             ->download($zipFile, $this->getVersion())
             ->extract($zipFile, $directory)
+            ->removeExtraneousFiles($directory)
+            ->createFiles($directory)
             ->prepareWritableDirectory($directory)
+            ->configureSystemPath($directory)
             ->cleanUp($zipFile)
             ->prepareComposerJson($directory)
             ->initializeGit($directory)
@@ -123,7 +135,7 @@ class NewCommand extends Command
      */
     protected function verifyApplicationDirectory(string $directory)
     {
-        return (is_dir($directory) || is_file($directory)) && $directory !== getcwd();
+        return $this->fs->exists($directory) && $directory !== getcwd();
     }
 
     /**
@@ -133,7 +145,7 @@ class NewCommand extends Command
      */
     protected function getFilename(): string
     {
-        return getcwd() . DIRECTORY_SEPARATOR . 'codeigniter4_' . md5(time() . uniqid()) . '.zip';
+        return $this->fs->tempnam(getcwd(), 'codeigniter4_', '.zip');
     }
 
     /**
@@ -153,6 +165,7 @@ class NewCommand extends Command
     /**
      * Gets the zipball URL for the latest release of appstarter.
      *
+     * @throws RuntimeException
      * @return string
      */
     protected function getAppstarterURL(): string
@@ -160,6 +173,11 @@ class NewCommand extends Command
         $response = (new Client())->get('https://api.github.com/repos/codeigniter4/appstarter/releases/latest');
 
         $json = json_decode($response->getBody(), true);
+
+        if (!isset($json['zipball_url'])) {
+            throw new RuntimeException('Cannot determine the ZIP URL from GitHub API.');
+        }
+
         return $json['zipball_url'];
     }
 
@@ -169,6 +187,8 @@ class NewCommand extends Command
      * @param string $zipFile
      * @param string $version
      *
+     * @throws \GuzzleHTTP\Exception\GuzzleException
+     * @throws \Symfony\Component\Filesystem\Exception\IOExceptionInterface
      * @return $this
      */
     protected function download(string $zipFile, string $version = 'framework')
@@ -183,13 +203,13 @@ class NewCommand extends Command
                 break;
             case 'appstarter':
             default:
-                $zip = $this->getFrameworkURL();
+                $zip = $this->getAppstarterURL();
                 break;
         }
 
         $response = (new Client())->get($zip);
 
-        file_put_contents($zipFile, $response->getBody());
+        $this->fs->dumpFile($zipFile, $response->getBody());
         return $this;
     }
 
@@ -199,6 +219,7 @@ class NewCommand extends Command
      * @param string $zipFile
      * @param string $directory
      *
+     * @throws RuntimeException
      * @return $this
      */
     protected function extract(string $zipFile, string $directory)
@@ -211,7 +232,7 @@ class NewCommand extends Command
         $response = $archive->open($zipFile, ZipArchive::CHECKCONS);
 
         if (!$response) {
-            throw new RuntimeException('The zip file errored during download.');
+            throw new RuntimeException('The zip file errored during extraction.');
         }
 
         // the zip has a parent folder so we need to know its name
@@ -221,26 +242,147 @@ class NewCommand extends Command
         $archive->extractTo($directory);
         $archive->close();
 
-        $fs = new Filesystem();
-        $fs->mirror($directory . DIRECTORY_SEPARATOR . $parentFolder, $directory);
-        $fs->remove($directory . DIRECTORY_SEPARATOR . $parentFolder);
+        // move the subdirs one folder up
+        $this->fs->mirror($directory . DIRECTORY_SEPARATOR . $parentFolder, $directory);
+        $this->fs->remove($directory . DIRECTORY_SEPARATOR . $parentFolder);
+
+        return $this;
+    }
+
+    /**
+     * Removes extraneous files and directories.
+     *
+     * @param string $directory
+     *
+     * @return $this
+     */
+    protected function removeExtraneousFiles(string $directory)
+    {
+        if ($this->output->isVerbose()) {
+            $this->output->writeln('<info>Removing extraneous files and directories...</info>');
+        }
+
+        $dir = $directory . DIRECTORY_SEPARATOR;
+
+        // common deletables in appstarter and develop
+        $extras = [
+            $dir . '.github',
+            $dir . 'tests',
+            $dir . 'README.md',
+            $dir . 'phpunit.xml.dist',
+        ];
 
         if ($this->input->getOption('dev')) {
-            $dirs = [
-                $directory . DIRECTORY_SEPARATOR . '.github',
-                $directory . DIRECTORY_SEPARATOR . 'system',
-                $directory . DIRECTORY_SEPARATOR . 'tests',
-                $directory . DIRECTORY_SEPARATOR . 'user_guide_src',
-            ];
+            $extras = array_merge($extras, [
+                $dir . 'admin',
+                $dir . 'contributing',
+                $dir . 'system',
+                $dir . 'user_guide_src',
+                $dir . '.editorconfig',
+                $dir . '.nojekyll',
+                $dir . '.travis.yml',
+                $dir . 'CHANGELOG.md',
+                $dir . 'CODE_OF_CONDUCT.md',
+                $dir . 'CONTRIBUTING.md',
+                $dir . 'DCO.txt',
+                $dir . 'phpdoc.dist.xml',
+                $dir . 'PULL_REQUEST_TEMPLATE.md',
+                $dir . 'stale.yml',
+                $dir . 'Vagrantfile.dist',
+            ]);
+        }
 
-            $fs->remove($dirs);
+        try {
+            $this->fs->remove($extras);
+        } catch (IOExceptionInterface $e) {
+            $this->output->writeln('<error>' . $e->getMessage() . '</error>');
         }
 
         return $this;
     }
 
     /**
-     * Prepares writability of the 'writable' directory.
+     * Creates additional files and directories needed.
+     *
+     * @param string $directory
+     *
+     * @return $this
+     */
+    protected function createFiles(string $directory)
+    {
+        if ($this->output->isVerbose()) {
+            $this->output->writeln('<info>Creating additional directories and files...</info>');
+        }
+
+        $files = [
+            [
+                __DIR__ . '/../../bin/phpunit.template.yml',
+                $directory . '/.github/workflows/phpunit.yml',
+            ],
+            [
+                __DIR__ . '/../../bin/phpunit.template.xml',
+                $directory . '/phpunit.xml.dist',
+            ],
+            [
+                __DIR__ . '/../../output/.gitkeep',
+                $directory . '/tests/_support/.gitkeep',
+            ],
+        ];
+
+        try {
+            foreach ($files as $file) {
+                $this->fs->copy($file[0], $file[1], true);
+            }
+        } catch (IOExceptionInterface $e) {
+            $this->output->writeln('<error>' . $e->getMessage() . '</error>');
+        }
+
+        return $this;
+    }
+
+    /**
+     * Configures the system path
+     *
+     * @param string $directory
+     *
+     * @return $this
+     */
+    protected function configureSystemPath(string $directory)
+    {
+        if ($this->output->isVerbose()) {
+            $this->output->writeln('<info>Configuring the system path...</info>');
+        }
+
+        $files = [
+            $directory . DIRECTORY_SEPARATOR . 'app/Config/Paths.php',
+            $directory . DIRECTORY_SEPARATOR . 'phpunit.xml.dist',
+        ];
+
+        foreach ($files as $file) {
+            if ($this->fs->exists($file)) {
+                $contents = file_get_contents($file);
+
+                if ($this->input->getOption('dev')) {
+                    $contents = str_replace(['vendor/codeigniter4/framework', '{path}'], 'vendor/codeigniter4/codeigniter4', $contents);
+                    $contents = str_replace('/../../system', '/../../vendor/codeigniter4/codeigniter4/system', $contents);
+                } else {
+                    $contents = str_replace(['vendor/codeigniter4/codeigniter4', '{path}'], 'vendor/codeigniter4/framework', $contents);
+                    $contents = str_replace('/../../system', '/../../vendor/codeigniter4/framework/system', $contents);
+                }
+
+                try {
+                    $this->fs->dumpFile($file, $contents);
+                } catch (IOExceptionInterface $e) {
+                    $this->output->writeln('<error>' . $e->getMessage() . '</error>');
+                }
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Prepares permissions on the 'writable' directory.
      *
      * @param string $directory
      *
@@ -253,11 +395,10 @@ class NewCommand extends Command
         }
 
         try {
-            $fs = new Filesystem();
-            $fs->chmod($directory . DIRECTORY_SEPARATOR . 'writable', 0755, 0000, true);
+            $this->fs->chmod($directory . DIRECTORY_SEPARATOR . 'writable', 0755, 0000, true);
         } catch (IOExceptionInterface $e) {
             $this->output->writeln('<error>' . $e->getMessage() . '</error>');
-            $this->output->writeln('<comment>You should verify that the "writable" directory is really writable.</comment>');
+            $this->output->writeln('<comment>You should verify that you have permissions on the "writable" directory.</comment>');
         }
 
         return $this;
@@ -276,8 +417,12 @@ class NewCommand extends Command
             $this->output->writeln('<info>Cleaning up the zip file...</info>');
         }
 
-        if (!@chmod($zipFile, 0777) || !@unlink($zipFile)) {
-            $this->output->writeln('Cannot clean up the zip file. Please delete it yourself.');
+        try {
+            $this->fs->chmod($zipFile, 0777);
+            $this->fs->remove($zipFile);
+        } catch (IOExceptionInterface $e) {
+            $this->output->writeln('<error>' . $e->getMessage() . '</error>');
+            $this->output->writeln('<comment>Cannot clean up the zip file. Please delete it yourself.</comment>');
         }
 
         return $this;
@@ -290,10 +435,10 @@ class NewCommand extends Command
      */
     protected function findComposerPhar(): string
     {
-        $composerPhar = getcwd() . '/composer.phar';
+        $composerPhar = getcwd() . DIRECTORY_SEPARATOR . 'composer.phar';
         $phpBinary    = (new PhpExecutableFinder())->find();
 
-        if (file_exists($composerPhar)) {
+        if ($this->fs->exists($composerPhar)) {
             return escapeshellarg($phpBinary) . ' ' . escapeshellarg($composerPhar);
         }
 
@@ -313,7 +458,7 @@ class NewCommand extends Command
             $this->output->writeln('<info>Preparing composer.json...</info>');
         }
 
-        $composerPath = $directory . '/composer.json';
+        $composerPath = $directory . DIRECTORY_SEPARATOR . 'composer.json';
         $templateJson = json_decode(file_get_contents(__DIR__ . '/../../bin/template.json'), true);
 
         if (file_exists($composerPath)) {
@@ -323,7 +468,7 @@ class NewCommand extends Command
         $git = $this->getGitConfig();
 
         // create package name
-        $name = basename(realpath('.'));
+        $name = basename(realpath($directory));
         $name = preg_replace('{(?:([a-z])([A-Z])|([A-Z])([A-Z][a-z]))}', '\\1\\3-\\2\\4', $name);
         $name = mb_strtolower($name);
 
@@ -354,7 +499,7 @@ class NewCommand extends Command
         $templateJson['name']      = $name;
         $templateJson['authors'][] = $author;
 
-        file_put_contents($composerPath, json_encode(
+        $this->fs->dumpFile($composerPath, json_encode(
             $this->appendComposerJson($templateJson),
             JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE
         ) . "\n");
@@ -375,13 +520,18 @@ class NewCommand extends Command
         $templateJson  = $templateJson ?? $composerJson;
 
         $framework = ($this->input->getOption('dev'))
-            ? ['codeigniter4/CodeIgniter4' => 'dev-develop']
+            ? ['codeigniter4/codeigniter4' => 'dev-develop']
             : ['codeigniter4/framework' => '^4'];
 
         // minimum stability
         $this->input->getOption('dev')
             ? $composerJson['minimum-stability'] = 'dev'
             : $composerJson['minimum-stability'] = 'stable';
+
+        // prefer stable
+        $composerJson['prefer-stable'] = isset($composerJson['prefer-stable'])
+            ? true
+            : $templateJson['prefer-stable'];
 
         // repositories
         if ($this->input->getOption('dev')) {
@@ -397,16 +547,23 @@ class NewCommand extends Command
 
         // require
         $composerJson['require'] = isset($composerJson['require'])
-            ? array_unique(array_merge($composerJson['require'], $templateJson['require'], $framework))
+            ? array_merge($composerJson['require'], $templateJson['require'], $framework)
             : array_merge($templateJson['require'], $framework);
 
         // require-dev
         $composerJson['require-dev'] = isset($composerJson['require-dev'])
-            ? array_unique(array_merge($composerJson['require-dev'], $templateJson['require-dev']))
+            ? array_merge($composerJson['require-dev'], $templateJson['require-dev'])
             : $templateJson['require-dev'];
 
-        $composerJson['autoload-dev']['psr-4']      = $templateJson['autoload-dev']['psr-4'];
-        $composerJson['scripts']['post-update-cmd'] = $templateJson['scripts']['post-update-cmd'];
+        // autoload-dev
+        $composerJson['autoload-dev']['psr-4'] = isset($composerJson['autoload-dev']['psr-4'])
+            ? array_merge($composerJson['autoload-dev']['psr-4'], $templateJson['autoload-dev']['psr-4'])
+            : $templateJson['autoload-dev']['psr-4'];
+
+        // post-update-cmd
+        $composerJson['scripts']['post-update-cmd'] = isset($composerJson['scripts']['post-update-cmd'])
+            ? array_unique(array_merge($composerJson['scripts']['post-update-cmd'], $templateJson['scripts']['post-update-cmd']))
+            : $templateJson['scripts']['post-update-cmd'];
 
         return $composerJson;
     }
@@ -474,7 +631,7 @@ class NewCommand extends Command
 
             $gitBin = escapeshellarg($this->getGitBinary());
             $cmd    = Process::fromShellCommandline($gitBin . ' init', $directory);
-            $cmd->run();
+            $cmd->setTimeout(3600)->run();
 
             if ($cmd->isSuccessful()) {
                 $this->output->writeln("<comment>Empty Git repository initialized at {$directory}</comment>");
@@ -513,7 +670,7 @@ class NewCommand extends Command
                 $gitBin . ' flow init -d -f --local -t v',
             ];
 
-            $cmd    = Process::fromShellCommandline(implode(' && ', $commands), $directory);
+            $cmd = Process::fromShellCommandline(implode(' && ', $commands), $directory);
             $cmd->setTimeout(3600)->run();
 
             if ($cmd->isSuccessful()) {
