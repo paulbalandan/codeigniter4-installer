@@ -45,6 +45,14 @@ class NewCommandTest extends TestCase
         }
     }
 
+    protected function tearDown(): void
+    {
+        if ($this->fs->exists($this->directory)) {
+            $this->fs->chmod($this->directory, 0777, 0000, true);
+            $this->fs->remove($this->directory);
+        }
+    }
+
     public function testInstallerCanScaffoldANewCodeigniterApp()
     {
         $app = new Application('Liaison Installer for CodeIgniter4');
