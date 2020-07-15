@@ -15,6 +15,7 @@ Using Composer, globally install this Installer using the following command:
 Now that you have globally installed the Installer, you can just use `codeigniter4 new [name]` in your terminal, where `name` is the name of the directory, to call the scaffolding.
 
 `name` here is optional. If you did not provide one, this will default to your current working directory.
+If `name` is provided, it will be resolved relative to the current working directory.
 
 Run `codeigniter4 new --help` for the full options.
 
