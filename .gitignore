@@ -40,6 +40,7 @@ $RECYCLE.BIN/
 # Test Files
 #-------------------------
 output/*
+codeigniter4_*.zip
 !output/.gitkeep
 
 # Don't save phpunit under version control.
