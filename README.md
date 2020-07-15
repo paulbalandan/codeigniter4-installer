@@ -20,7 +20,7 @@ Run `codeigniter4 new --help` for the full options.
 
 ## Options
 
-- `-d|--dev` - Installs the latest CI4 developer version
+- `--dev` - Installs the latest CI4 developer version
 - `--with-git` - Initializes an empty Git repository in the directory
 - `--with-gitflow` - Uses GitFlow to initialize the Git repository. This has `--with-git` option implicitly included.
 - `-f|--force` - Force install on existing directory.
