@@ -26,7 +26,3 @@ Run `codeigniter4 new --help` for the full options.
 - `-f|--force` - Force install on existing directory.
 
 **Note:** These options are not enabled by default. You should provide your set of options.
-
-## License
-
-Liaison Installer for CodeIgniter4 is open-sourced software license under the [MIT License](LICENSE).
