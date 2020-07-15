@@ -1,5 +1,6 @@
 # Liaison Installer for CodeIgniter4
 
+![QA Control](https://github.com/paulbalandan/codeigniter4-installer/workflows/QA%20Control/badge.svg?branch=develop)
 [![GitHub license](https://img.shields.io/github/license/paulbalandan/codeigniter4-installer)](LICENSE)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/paulbalandan/codeigniter4-installer/pulls)
 
