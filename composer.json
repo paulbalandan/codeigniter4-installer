@@ -2,7 +2,7 @@
     "name": "paulbalandan/codeigniter4-installer",
     "description": "A full suite installer for CodeIgniter4.",
     "keywords": ["codeigniter4", "installer"],
-    "type": "project",
+    "type": "library",
     "license": "MIT",
     "authors": [
         {
@@ -44,7 +44,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-develop": "1.0-dev"
+            "dev-develop": "1.x-dev"
         }
     }
 }
