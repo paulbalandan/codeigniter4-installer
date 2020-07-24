@@ -6,6 +6,13 @@ on:
       - develop
     paths:
       - src/**
+      - tests/**
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - src/**
+      - tests/**
 
 jobs:
   main:
