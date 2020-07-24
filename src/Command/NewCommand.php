@@ -73,7 +73,7 @@ class NewCommand extends Command
             ->setName('new')
             ->setDescription('Create a new CodeIgniter4 application.')
             ->addArgument('name', InputArgument::OPTIONAL, 'Name of the local directory where the application will be made.')
-            ->addOption('dev', null, InputOption::VALUE_NONE, 'Installs the latest CI4 developer version')
+            ->addOption('dev', null, InputOption::VALUE_NONE, 'Installs the latest CI4 developer version as framework.')
             ->addOption('with-git', null, InputOption::VALUE_NONE, 'Initializes an empty Git repository in the directory.')
             ->addOption('with-gitflow', null, InputOption::VALUE_NONE, 'Uses GitFlow to initialize the Git repository. This has "--with-git" option implicitly included.')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force install on existing directory.')
@@ -112,7 +112,7 @@ class NewCommand extends Command
         $zipFile = $this->getFilename();
 
         return $this
-            ->download($zipFile, $this->getVersion())
+            ->download($zipFile)
             ->extract($zipFile, $directory)
             ->removeExtraneousFiles($directory)
             ->createFiles($directory)
@@ -149,23 +149,9 @@ class NewCommand extends Command
     }
 
     /**
-     * Gets the CI4 version to download.
-     *
-     * @return string
-     */
-    protected function getVersion(): string
-    {
-        if ($this->input->getOption('dev')) {
-            return 'develop';
-        }
-
-        return 'appstarter';
-    }
-
-    /**
      * Gets the zipball URL for the latest release of appstarter.
      *
-     * @throws RuntimeException
+     * @throws \RuntimeException
      * @return string
      */
     protected function getAppstarterURL(): string
@@ -185,29 +171,18 @@ class NewCommand extends Command
      * Downloads the zip file.
      *
      * @param string $zipFile
-     * @param string $version
      *
      * @throws \GuzzleHTTP\Exception\GuzzleException
      * @throws \Symfony\Component\Filesystem\Exception\IOExceptionInterface
      * @return $this
      */
-    protected function download(string $zipFile, string $version = 'framework')
+    protected function download(string $zipFile)
     {
         if ($this->output->isVerbose()) {
             $this->output->writeln('<info>Downloading the zip file...</info>');
         }
 
-        switch ($version) {
-            case 'develop':
-                $zip = 'https://github.com/codeigniter4/CodeIgniter4/zipball/develop';
-                break;
-            case 'appstarter':
-            default:
-                $zip = $this->getAppstarterURL();
-                break;
-        }
-
-        $response = (new Client())->get($zip);
+        $response = (new Client())->get($this->getAppstarterURL());
 
         $this->fs->dumpFile($zipFile, $response->getBody());
         return $this;
@@ -219,7 +194,7 @@ class NewCommand extends Command
      * @param string $zipFile
      * @param string $directory
      *
-     * @throws RuntimeException
+     * @throws \RuntimeException
      * @return $this
      */
     protected function extract(string $zipFile, string $directory)
@@ -271,26 +246,6 @@ class NewCommand extends Command
             $dir . 'README.md',
             $dir . 'phpunit.xml.dist',
         ];
-
-        if ($this->input->getOption('dev')) {
-            $extras = array_merge($extras, [
-                $dir . 'admin',
-                $dir . 'contributing',
-                $dir . 'system',
-                $dir . 'user_guide_src',
-                $dir . '.editorconfig',
-                $dir . '.nojekyll',
-                $dir . '.travis.yml',
-                $dir . 'CHANGELOG.md',
-                $dir . 'CODE_OF_CONDUCT.md',
-                $dir . 'CONTRIBUTING.md',
-                $dir . 'DCO.txt',
-                $dir . 'phpdoc.dist.xml',
-                $dir . 'PULL_REQUEST_TEMPLATE.md',
-                $dir . 'stale.yml',
-                $dir . 'Vagrantfile.dist',
-            ]);
-        }
 
         try {
             $this->fs->remove($extras);
@@ -364,10 +319,8 @@ class NewCommand extends Command
 
                 if ($this->input->getOption('dev')) {
                     $contents = str_replace(['vendor/codeigniter4/framework', '{path}'], 'vendor/codeigniter4/codeigniter4', $contents);
-                    $contents = str_replace('/../../system', '/../../vendor/codeigniter4/codeigniter4/system', $contents);
                 } else {
-                    $contents = str_replace(['vendor/codeigniter4/codeigniter4', '{path}'], 'vendor/codeigniter4/framework', $contents);
-                    $contents = str_replace('/../../system', '/../../vendor/codeigniter4/framework/system', $contents);
+                    $contents = str_replace('{path}', 'vendor/codeigniter4/framework', $contents);
                 }
 
                 try {
@@ -511,14 +464,12 @@ class NewCommand extends Command
      * Appends additional details to composer.json
      *
      * @param array $composerJson
-     * @param array $templateJson
      *
      * @return array
      */
-    protected function appendComposerJson(array $composerJson, ?array $templateJson = null)
+    protected function appendComposerJson(array $composerJson)
     {
-        $templateJson  = $templateJson ?? $composerJson;
-
+        // CI4 framework to use
         $framework = ($this->input->getOption('dev'))
             ? ['codeigniter4/codeigniter4' => 'dev-develop']
             : ['codeigniter4/framework' => '^4'];
@@ -529,9 +480,7 @@ class NewCommand extends Command
             : $composerJson['minimum-stability'] = 'stable';
 
         // prefer stable
-        $composerJson['prefer-stable'] = isset($composerJson['prefer-stable'])
-            ? true
-            : $templateJson['prefer-stable'];
+        $composerJson['prefer-stable'] = true;
 
         // repositories
         if ($this->input->getOption('dev')) {
@@ -546,24 +495,7 @@ class NewCommand extends Command
         }
 
         // require
-        $composerJson['require'] = isset($composerJson['require'])
-            ? array_merge($composerJson['require'], $templateJson['require'], $framework)
-            : array_merge($templateJson['require'], $framework);
-
-        // require-dev
-        $composerJson['require-dev'] = isset($composerJson['require-dev'])
-            ? array_merge($composerJson['require-dev'], $templateJson['require-dev'])
-            : $templateJson['require-dev'];
-
-        // autoload-dev
-        $composerJson['autoload-dev']['psr-4'] = isset($composerJson['autoload-dev']['psr-4'])
-            ? array_merge($composerJson['autoload-dev']['psr-4'], $templateJson['autoload-dev']['psr-4'])
-            : $templateJson['autoload-dev']['psr-4'];
-
-        // post-update-cmd
-        $composerJson['scripts']['post-update-cmd'] = isset($composerJson['scripts']['post-update-cmd'])
-            ? array_unique(array_merge($composerJson['scripts']['post-update-cmd'], $templateJson['scripts']['post-update-cmd']))
-            : $templateJson['scripts']['post-update-cmd'];
+        $composerJson['require'] = array_merge($composerJson['require'], $framework);
 
         return $composerJson;
     }
@@ -571,7 +503,7 @@ class NewCommand extends Command
     /**
      * Gets the location of the git binary.
      *
-     * @throws RuntimeException
+     * @throws \RuntimeException
      * @return string
      */
     protected function getGitBinary(): string
@@ -588,7 +520,7 @@ class NewCommand extends Command
     /**
      * Gets the git config variables.
      *
-     * @throws RuntimeException
+     * @throws \RuntimeException
      * @return array
      */
     protected function getGitConfig(): array
