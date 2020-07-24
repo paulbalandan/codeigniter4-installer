@@ -66,32 +66,4 @@ class NewCommandTest extends TestCase
         $this->assertDirectoryExists($this->directory . '/vendor');
         $this->assertFileExists($this->directory . '/.env');
     }
-
-    public function testInstallerCanScaffoldADeveloperCodeigniterApp()
-    {
-        $app = new Application('Liaison Installer for CodeIgniter4');
-        $app->add(new NewCommand());
-
-        $tester = new CommandTester($app->find('new'));
-
-        $exitCode = $tester->execute(['name' => $this->name, '--dev' => null, '-v' => null]);
-
-        $this->assertEquals(0, $exitCode);
-        $this->assertDirectoryExists($this->directory . '/vendor');
-        $this->assertDirectoryNotExists($this->directory . '/admin');
-        $this->assertFileNotExists($this->directory . '/CONTRIBUTING.md');
-    }
-
-    public function testInstallerCanInitializeGit()
-    {
-        $app = new Application('Liaison Installer for CodeIgniter4');
-        $app->add(new NewCommand());
-
-        $tester = new CommandTester($app->find('new'));
-
-        $exitCode = $tester->execute(['name' => $this->name, '--with-git' => null, '-v' => null]);
-
-        $this->assertEquals(0, $exitCode);
-        $this->assertDirectoryExists($this->directory . '/.git');
-    }
 }
