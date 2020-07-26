@@ -11,9 +11,9 @@
 
 namespace Liaison\Installers\CodeIgniter4\Tests\Command;
 
+use Liaison\Installers\CodeIgniter4\Application;
 use Liaison\Installers\CodeIgniter4\Command\NewCommand;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Filesystem;
 
@@ -55,7 +55,7 @@ class NewCommandTest extends TestCase
 
     public function testInstallerCanScaffoldANewCodeigniterApp()
     {
-        $app = new Application('Liaison Installer for CodeIgniter4');
+        $app = new Application();
         $app->add(new NewCommand());
 
         $tester = new CommandTester($app->find('new'));
