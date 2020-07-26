@@ -32,7 +32,7 @@ jobs:
         with:
           php-version: '7.2'
           tools: composer, pecl, phpunit
-          extensions: intl, json, mbstring, mysqlnd, xdebug, xml, sqlite3
+          extensions: curl, intl, json, mbstring, xdebug, xml, zip
           coverage: xdebug
 
       - name: Use latest Composer

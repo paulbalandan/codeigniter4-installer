@@ -95,11 +95,6 @@ class NewCommand extends Command
         $this->input  = $input;
         $this->output = $output;
 
-        if (!\extension_loaded('zip')) {
-            $this->output->writeln('<error>Liaison Installer for CodeIgniter4 needs the ZIP extension installed.</error>');
-            return 1;
-        }
-
         $name      = $this->input->getArgument('name');
         $directory = ($name && '.' !== $name) ? getcwd() . DIRECTORY_SEPARATOR . $name : getcwd();
 
