@@ -657,12 +657,12 @@ class NewCommand extends Command
             })
         ;
 
-        if ($cmd->isSuccessful()) {
-            $this->output->writeln('<comment>Application ready! Start building your craft now!</comment>');
-            return 0;
+        if (!$cmd->isSuccessful()) {
+            $this->output->writeln('<error>Application scaffolding failed.</error>');
+            return 1;
         }
 
-        $this->output->writeln('<error>Application scaffolding failed.</error>');
-        return 1;
+        $this->output->writeln('<comment>Application ready! Start building your craft now!</comment>');
+        return 0;
     }
 }
