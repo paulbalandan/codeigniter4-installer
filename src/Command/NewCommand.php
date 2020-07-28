@@ -594,7 +594,7 @@ class NewCommand extends Command
             $gitBin   = escapeshellarg($this->getGitBinary());
             $commands = [
                 $gitBin . ' init',
-                $gitBin . ' flow init -d -f --local -t v',
+                $gitBin . ' flow init -d -f --local',
             ];
 
             $cmd = Process::fromShellCommandline(implode(' && ', $commands), $directory, null, null, null);
@@ -653,11 +653,6 @@ class NewCommand extends Command
         $cmd->mustRun(function ($type, $line) use ($output) {
             $output->write($line);
         });
-
-        if (!$cmd->isSuccessful()) {
-            $this->output->writeln('<error>Application scaffolding failed.</error>');
-            return 1;
-        }
 
         $this->output->writeln('<comment>Application ready! Start building your craft now!</comment>');
         return 0;
