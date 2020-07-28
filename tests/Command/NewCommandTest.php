@@ -36,8 +36,8 @@ class NewCommandTest extends TestCase
     protected function setUp(): void
     {
         $this->fs        = new Filesystem();
-        $this->name      = 'output/app';
-        $this->directory = __DIR__ . '/../../output/app';
+        $this->name      = 'output/my-app';
+        $this->directory = realpath(__DIR__ . '/../..') . '/output/my-app';
 
         if ($this->fs->exists($this->directory)) {
             $this->fs->chmod($this->directory, 0777, 0000, true);

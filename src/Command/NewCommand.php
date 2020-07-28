@@ -557,8 +557,8 @@ class NewCommand extends Command
             }
 
             $gitBin = escapeshellarg($this->getGitBinary());
-            $cmd    = Process::fromShellCommandline($gitBin . ' init', $directory);
-            $cmd->setTimeout(3600)->run();
+            $cmd    = Process::fromShellCommandline($gitBin . ' init', $directory, null, null, null);
+            $cmd->run();
 
             if ($cmd->isSuccessful()) {
                 $this->output->writeln("<comment>Empty Git repository initialized at {$directory}</comment>");
@@ -594,11 +594,11 @@ class NewCommand extends Command
             $gitBin   = escapeshellarg($this->getGitBinary());
             $commands = [
                 $gitBin . ' init',
-                $gitBin . ' flow init -d -f --local -t v',
+                $gitBin . ' flow init -d -f --local',
             ];
 
-            $cmd = Process::fromShellCommandline(implode(' && ', $commands), $directory);
-            $cmd->setTimeout(3600)->run();
+            $cmd = Process::fromShellCommandline(implode(' && ', $commands), $directory, null, null, null);
+            $cmd->run();
 
             if ($cmd->isSuccessful()) {
                 $this->output->writeln("<comment>Git Flow initialized at {$directory}</comment>");
@@ -638,7 +638,7 @@ class NewCommand extends Command
             }, $commands);
         }
 
-        $cmd = Process::fromShellCommandline(implode(' && ', $commands), $directory);
+        $cmd = Process::fromShellCommandline(implode(' && ', $commands), $directory, null, null, null);
 
         if ('\\' !== DIRECTORY_SEPARATOR && file_exists('/dev/tty') && is_readable('/dev/tty')) {
             try {
@@ -650,19 +650,11 @@ class NewCommand extends Command
 
         $output = $this->output;
 
-        $cmd
-            ->setTimeout(3600)
-            ->run(function ($type, $line) use ($output) {
-                $output->write($line);
-            })
-        ;
+        $cmd->mustRun(function ($type, $line) use ($output) {
+            $output->write($line);
+        });
 
-        if (!$cmd->isSuccessful()) {
-            $this->output->writeln('<error>Application scaffolding failed.</error>');
-        } else {
-            $this->output->writeln('<comment>Application ready! Start building your craft now!</comment>');
-        }
-
+        $this->output->writeln('<comment>Application ready! Start building your craft now!</comment>');
         return 0;
     }
 }
