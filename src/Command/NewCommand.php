@@ -650,16 +650,16 @@ class NewCommand extends Command
 
         $output = $this->output;
 
-        $cmd->run(function ($type, $line) use ($output) {
+        $cmd->mustRun(function ($type, $line) use ($output) {
             $output->write($line);
         });
 
         if (!$cmd->isSuccessful()) {
             $this->output->writeln('<error>Application scaffolding failed.</error>');
-        } else {
-            $this->output->writeln('<comment>Application ready! Start building your craft now!</comment>');
+            return 1;
         }
 
+        $this->output->writeln('<comment>Application ready! Start building your craft now!</comment>');
         return 0;
     }
 }
