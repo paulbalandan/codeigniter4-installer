@@ -1,6 +1,9 @@
 # Liaison Installer for CodeIgniter4
 
+![QA Build](https://github.com/paulbalandan/codeigniter4-installer/workflows/QA%20Build/badge.svg?branch=develop)
 ![QA Control](https://github.com/paulbalandan/codeigniter4-installer/workflows/QA%20Control/badge.svg?branch=develop)
+[![Latest Stable Version](https://poser.pugx.org/paulbalandan/codeigniter4-installer/v)](https://packagist.org/packages/paulbalandan/codeigniter4-installer)
+[![Latest Unstable Version](https://poser.pugx.org/paulbalandan/codeigniter4-installer/v/unstable)](https://packagist.org/packages/paulbalandan/codeigniter4-installer)
 [![GitHub license](https://img.shields.io/github/license/paulbalandan/codeigniter4-installer)](LICENSE)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](https://github.com/paulbalandan/codeigniter4-installer/pulls)
 
