@@ -266,11 +266,11 @@ class NewCommand extends Command
 
         $files = [
             [
-                __DIR__ . '/../../bin/phpunit.template.yml',
+                __DIR__ . '/../../resources/phpunit.template.yml',
                 $directory . '/.github/workflows/phpunit.yml',
             ],
             [
-                __DIR__ . '/../../bin/phpunit.template.xml',
+                __DIR__ . '/../../resources/phpunit.template.xml',
                 $directory . '/phpunit.xml.dist',
             ],
             [
@@ -407,7 +407,7 @@ class NewCommand extends Command
         }
 
         $composerPath = $directory . DIRECTORY_SEPARATOR . 'composer.json';
-        $templateJson = json_decode(file_get_contents(__DIR__ . '/../../bin/template.json'), true);
+        $templateJson = json_decode(file_get_contents(__DIR__ . '/../../resources/template.json'), true);
 
         if (file_exists($composerPath)) {
             @unlink($composerPath);
