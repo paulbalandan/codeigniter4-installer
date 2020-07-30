@@ -42,6 +42,14 @@ class NewCommand extends Command
     protected $gitConfig = [];
 
     /**
+     * Default configuration values
+     * for composer.json
+     *
+     * @var array
+     */
+    protected $config = [];
+
+    /**
      * Filesystem object
      *
      * @var \Symfony\Component\Filesystem\Filesystem
@@ -73,6 +81,7 @@ class NewCommand extends Command
             ->setName('new')
             ->setDescription('Create a new CodeIgniter4 application.')
             ->addArgument('name', InputArgument::OPTIONAL, 'Name of the local directory where the application will be made.')
+            ->addOption('config', 'c', InputOption::VALUE_OPTIONAL, 'Path of config file to get default values for composer.json')
             ->addOption('dev', null, InputOption::VALUE_NONE, 'Installs the latest CI4 developer version as framework.')
             ->addOption('with-git', null, InputOption::VALUE_NONE, 'Initializes an empty Git repository in the directory.')
             ->addOption('with-gitflow', null, InputOption::VALUE_NONE, 'Uses GitFlow to initialize the Git repository. This has "--with-git" option implicitly included.')
@@ -104,6 +113,7 @@ class NewCommand extends Command
         }
 
         $this->output->writeln('<info>Creating your own CodeIgniter4 application...</info>');
+        $this->resolveConfigurationFile($directory);
         $zipFile = $this->getFilename();
 
         return $this
@@ -111,6 +121,7 @@ class NewCommand extends Command
             ->extract($zipFile, $directory)
             ->removeExtraneousFiles($directory)
             ->createFiles($directory)
+            ->getLicense($directory)
             ->prepareWritableDirectory($directory)
             ->configureSystemPath($directory)
             ->cleanUp($zipFile)
@@ -131,6 +142,43 @@ class NewCommand extends Command
     protected function verifyApplicationDirectory(string $directory)
     {
         return $this->fs->exists($directory) && $directory !== getcwd();
+    }
+
+    /**
+     * Resolves the config file if given and extracts the config values.
+     *
+     * @param string $directory
+     *
+     * @return void
+     */
+    protected function resolveConfigurationFile(string $directory)
+    {
+        if ($config = trim($this->input->getOption('config'))) {
+            $search = [
+                $directory . '/' . $config,
+                $directory . '/../' . $config,
+                getcwd() . '/' . $config,
+            ];
+
+            $found    = false;
+            $notFound = [];
+            foreach ($search as $path) {
+                if ($this->fs->exists($path)) {
+                    $path = realpath($path);
+                    $this->output->writeln("<info>Loaded config from \"$path\".</info>");
+                    $this->config = require $path;
+
+                    $found = true;
+                    break;
+                } else {
+                    $notFound[] = $path;
+                }
+            }
+
+            if (!$found) {
+                throw new RuntimeException("Config \"$config\" is not found on the following paths: " . implode(', ', $notFound));
+            }
+        }
     }
 
     /**
@@ -232,14 +280,13 @@ class NewCommand extends Command
             $this->output->writeln('<info>Removing extraneous files and directories...</info>');
         }
 
-        $dir = $directory . DIRECTORY_SEPARATOR;
-
-        // common deletables in appstarter and develop
+        $dir    = $directory . DIRECTORY_SEPARATOR;
         $extras = [
             $dir . '.github',
             $dir . 'tests',
             $dir . 'README.md',
             $dir . 'phpunit.xml.dist',
+            $dir . 'license.txt',
         ];
 
         try {
@@ -283,6 +330,59 @@ class NewCommand extends Command
             foreach ($files as $file) {
                 $this->fs->copy($file[0], $file[1], true);
             }
+        } catch (IOExceptionInterface $e) {
+            $this->output->writeln('<error>' . $e->getMessage() . '</error>');
+        }
+
+        return $this;
+    }
+
+    /**
+     * Gets the appropriate license file to use.
+     *
+     * @param string $directory
+     *
+     * @return $this
+     */
+    protected function getLicense(string $directory)
+    {
+        if ($this->output->isVerbose()) {
+            $this->output->writeln('<info>Preparing the license...</info>');
+        }
+
+        $license = $this->config['license'] ?? 'MIT';
+
+        switch ($license) {
+            case 'Apache-2.0':
+                $file = 'LICENSE_APACHE-2.0.txt';
+                break;
+            case 'BSD-2-Clause':
+                $file = 'LICENSE_BSD-2-CLAUSE.txt';
+                break;
+            case 'BSD-3-Clause':
+                $file = 'LICENSE_BSD-3-CLAUSE.txt';
+                break;
+            case 'GPL-2.0-only':
+                $file = 'LICENSE_GPL-2.0.txt';
+                break;
+            case 'GPL-3.0-only':
+                $file = 'LICENSE_GPL-3.0.txt';
+                break;
+            case 'MIT':
+            default:
+                $file = 'LICENSE_MIT.txt';
+                break;
+        }
+
+        $path     = __DIR__ . '/../../resources/licenses/' . $file;
+        $contents = file_get_contents($path);
+
+        try {
+            $this->fs->dumpFile($directory . '/LICENSE', str_replace(
+                ['{year}', '{author}'],
+                [date('Y'), $this->getAuthorDetails()['name']],
+                $contents
+            ));
         } catch (IOExceptionInterface $e) {
             $this->output->writeln('<error>' . $e->getMessage() . '</error>');
         }
@@ -394,6 +494,37 @@ class NewCommand extends Command
     }
 
     /**
+     * Retrieves author details, either from
+     * config values given or through git config
+     *
+     * @return array
+     */
+    protected function getAuthorDetails(): array
+    {
+        $this->getGitConfig();
+
+        // provide defaults so that Composer won't complain later
+        $author = [
+            'name'  => 'John Doe',
+            'email' => 'john.doe@github.com',
+        ];
+
+        if (isset($this->config['userName'])) {
+            $author['name'] = $this->config['userName'];
+        } elseif (isset($this->gitConfig['user.name'])) {
+            $author['name'] = $this->gitConfig['user.name'];
+        }
+
+        if (isset($this->config['userEmail'])) {
+            $author['email'] = $this->config['userEmail'];
+        } elseif (isset($this->gitConfig['user.email'])) {
+            $author['email'] = $this->gitConfig['user.email'];
+        }
+
+        return $author;
+    }
+
+    /**
      * Prepares the composer.json with additional details.
      *
      * @param string $directory
@@ -413,39 +544,25 @@ class NewCommand extends Command
             @unlink($composerPath);
         }
 
-        $git = $this->getGitConfig();
-
         // create package name
         $name = basename(realpath($directory));
         $name = preg_replace('{(?:([a-z])([A-Z])|([A-Z])([A-Z][a-z]))}', '\\1\\3-\\2\\4', $name);
         $name = mb_strtolower($name);
 
-        if (isset($git['github.user'])) {
-            $name = $git['github.user'] . '/' . $name;
+        if (isset($this->config['githubUser'])) {
+            $name = $this->config['githubUser'] . '/' . $name;
+        } elseif (isset($this->gitConfig['github.user'])) {
+            $name = $this->gitConfig['github.user'] . '/' . $name;
         } elseif (get_current_user()) {
             $name = get_current_user() . '/' . $name;
         } else {
             $name .= '/' . $name;
         }
 
-        $name = mb_strtolower($name);
-
-        // get author details
-        $author = [
-            'name'  => '',
-            'email' => '',
-        ];
-
-        if (isset($git['user.name'])) {
-            $author['name'] = $git['user.name'];
-        }
-
-        if (isset($git['user.email'])) {
-            $author['email'] = $git['user.email'];
-        }
-
+        $name                      = mb_strtolower($name);
         $templateJson['name']      = $name;
-        $templateJson['authors'][] = $author;
+        $templateJson['authors'][] = $this->getAuthorDetails();
+        $templateJson['license']   = $this->config['license'] ?? 'MIT';
 
         $this->fs->dumpFile($composerPath, json_encode(
             $this->appendComposerJson($templateJson),
@@ -469,6 +586,12 @@ class NewCommand extends Command
             ? ['codeigniter4/codeigniter4' => 'dev-develop']
             : ['codeigniter4/framework' => '^4'];
 
+        // other require
+        $miscRequire = $this->config['require'] ?? [];
+
+        // other require-dev
+        $miscRequireDev = $this->config['require-dev'] ?? [];
+
         // minimum stability
         $this->input->getOption('dev')
             ? $composerJson['minimum-stability'] = 'dev'
@@ -489,8 +612,9 @@ class NewCommand extends Command
             ];
         }
 
-        // require
-        $composerJson['require'] = array_merge($composerJson['require'], $framework);
+        // merge require and require-dev
+        $composerJson['require']     = array_merge($composerJson['require'], $miscRequire, $framework);
+        $composerJson['require-dev'] = array_merge($composerJson['require-dev'], $miscRequireDev);
 
         return $composerJson;
     }
@@ -617,6 +741,7 @@ class NewCommand extends Command
      *
      * @param string $directory
      *
+     * @throws \Symfony\Component\Process\Exception\ProcessFailedException
      * @return int
      */
     protected function installApplication(string $directory)

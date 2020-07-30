@@ -26,11 +26,6 @@ jobs:
         php-versions: ['7.2', '7.3', '7.4']
 
     steps:
-      - name: Setup credentials
-        run: |
-          git config --global user.email "action@github.com"
-          git config --global user.name "${GITHUB_ACTOR}"
-
       - name: Checkout
         uses: actions/checkout@v2
 

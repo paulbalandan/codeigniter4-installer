@@ -60,10 +60,35 @@ class NewCommandTest extends TestCase
 
         $tester = new CommandTester($app->find('new'));
 
-        $exitCode = $tester->execute(['name' => $this->name, '-v' => null]);
+        $exitCode = $tester->execute(['name' => $this->name, '--verbose' => null]);
 
         $this->assertEquals(0, $exitCode);
         $this->assertDirectoryExists($this->directory . '/vendor');
         $this->assertFileExists($this->directory . '/.env');
+    }
+
+    public function testInstallerCanScaffoldWithConfig()
+    {
+        $app = new Application();
+        $app->add(new NewCommand());
+
+        $tester = new CommandTester($app->find('new'));
+
+        $exitCode = $tester->execute([
+            'name'      => $this->name,
+            '--verbose' => null,
+            '--dev'     => null,
+            '--config'  => 'config.php',
+        ]);
+
+        $config = require __DIR__ . '/../../output/config.php';
+        $json   = json_decode(file_get_contents($this->directory . '/composer.json'), true);
+
+        $this->assertEquals(0, $exitCode);
+        $this->assertDirectoryExists($this->directory . '/vendor');
+        $this->assertFileExists($this->directory . '/.env');
+        $this->assertEquals($config['userName'], $json['authors'][0]['name']);
+        $this->assertEquals($config['userEmail'], $json['authors'][0]['email']);
+        $this->assertEquals($config['license'], $json['license']);
     }
 }
