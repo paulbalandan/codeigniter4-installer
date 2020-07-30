@@ -40,6 +40,7 @@ $RECYCLE.BIN/
 # Test Files
 #-------------------------
 output/*
+!output/config.php
 codeigniter4_*.zip
 !output/.gitkeep
 
