@@ -161,7 +161,6 @@ class NewCommand extends Command
             ];
 
             $found    = false;
-            $notFound = [];
             foreach ($search as $path) {
                 if ($this->fs->exists($path)) {
                     $path = realpath($path);
@@ -170,13 +169,11 @@ class NewCommand extends Command
 
                     $found = true;
                     break;
-                } else {
-                    $notFound[] = $path;
                 }
             }
 
             if (!$found) {
-                throw new RuntimeException("Config \"$config\" is not found on the following paths: " . implode(', ', $notFound));
+                throw new RuntimeException("Config \"$config\" is not found.");
             }
         }
     }
